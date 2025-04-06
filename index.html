@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <!-- Mobile responsiveness -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACS Risk Scores Calculator</title>
+  <!-- Importing a modern font -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent-color: #a46601; /* Used for main title and section headers */
+      --container-bg: #ffffff;
+      --text-color: #333;
+      --result-bg: #f0f0f0;
+      --details-border: #ddd;
+      --footer-bg: #f9f9f9;
+      --box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    
+    /* Reset and base styling */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', sans-serif;
+      background-color: #f5f5f5;
+      color: var(--text-color);
+    }
+    .container {
+      max-width: 800px;
+      margin: 30px auto;
+      padding: 20px;
+      background: var(--container-bg);
+      border-radius: 12px;
+      box-shadow: var(--box-shadow);
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo img {
+      max-width: 100%;
+      height: auto;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: var(--accent-color);
+    }
+    /* Collapsible sections styling */
+    details {
+      background: var(--container-bg);
+      border: 1px solid var(--details-border);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      padding: 0 10px 10px 10px;
+    }
+    details summary {
+      font-weight: 500;
+      font-size: 1.1em;
+      cursor: pointer;
+      list-style: none;
+      background: var(--accent-color);
+      color: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      margin: -10px -10px 10px -10px;
+    }
+    details summary::-webkit-details-marker {
+      display: none;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 1em;
+    }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      margin-right: 10px;
+      width: auto;
+    }
+    .result {
+      background: var(--result-bg);
+      padding: 15px;
+      border-left: 4px solid var(--accent-color);
+      margin-top: 20px;
+      border-radius: 5px;
+    }
+    hr {
+      margin: 40px 0;
+      border: none;
+      border-top: 1px solid var(--details-border);
+    }
+    footer {
+      font-size: 0.9em;
+      color: var(--text-color);
+      text-align: center;
+      margin-top: 20px;
+      padding: 10px;
+      background: var(--footer-bg);
+      border-radius: 8px;
+    }
+    footer details {
+      background: var(--footer-bg);
+      border: 1px solid var(--details-border);
+      border-radius: 8px;
+      padding: 10px;
+      margin: 10px auto;
+      max-width: 100%;
+    }
+    footer details summary {
+      font-weight: bold;
+      cursor: pointer;
+      outline: none;
+      list-style: none;
+      background: var(--accent-color);
+      color: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      margin: -10px -10px 10px -10px;
+    }
+    footer details summary::-webkit-details-marker {
+      display: none;
+    }
+    footer .dev-info {
+      font-size: 0.8em;
+      text-align: center;
+      margin-top: 10px;
+    }
+    footer .dev-info span.name {
+      font-size: 1em;
+      font-weight: 600;
+    }
+    footer .dev-info span.postnominal {
+      font-size: 0.8em;
+    }
+    @media (max-width: 600px) {
+      .container {
+        margin: 10px;
+        padding: 10px;
+      }
+    }
+  </style>
+  <script>
+    function calculateScores() {
+      // Retrieve common parameters
+      var age = parseFloat(document.getElementById('age').value) || 0;
+      var hr = parseFloat(document.getElementById('hr').value) || 0;
+      var sbp = parseFloat(document.getElementById('sbp').value) || 0;
+      
+      // Retrieve creatinine in µmol/L, then convert to mg/dL (1 mg/dL ≈ 88.4 µmol/L)
+      var creatinine_umol = parseFloat(document.getElementById('creatinine').value) || 0;
+      var creatinine = creatinine_umol / 88.4;
+      
+      var killip = document.getElementById('killip').value;
+      
+      // GRACE-specific checkboxes
+      var arrest = document.getElementById('arrest').checked;
+      var stDep = document.getElementById('stDep').checked;
+      var enzymes = document.getElementById('enzymes').checked;
+      
+      // TIMI NSTEMI Score specific checkboxes
+      var riskFactors = document.getElementById('riskFactors').checked;
+      var cad = document.getElementById('cad').checked;
+      var angina = document.getElementById('angina').checked;
+      var aspirin = document.getElementById('aspirin').checked;
+      
+      // Mehran Score specific checkboxes and inputs
+      var hypotension = document.getElementById('hypotension').checked;
+      var iabp = document.getElementById('iabp').checked;
+      var anemia = document.getElementById('anemia').checked;
+      var diabetes = document.getElementById('diabetes').checked;
+      var contrast = parseFloat(document.getElementById('contrast').value) || 0;
+      
+      // -------------------------------------------
+      // TIMI Risk Score for NSTEMI (7-point scale)
+      var timiNSTEMI = 0;
+      if (age >= 65) { timiNSTEMI += 1; }
+      if (riskFactors) { timiNSTEMI += 1; }
+      if (cad) { timiNSTEMI += 1; }
+      if (stDep) { timiNSTEMI += 1; }
+      if (angina) { timiNSTEMI += 1; }
+      if (aspirin) { timiNSTEMI += 1; }
+      if (enzymes) { timiNSTEMI += 1; }
+      
+      // -------------------------------------------
+      // Simplified GRACE Score Calculation (point system)
+      var gracePoints = 0;
+      
+      // Age points
+      var agePoints = 0;
+      if (age < 40) { agePoints = 0; }
+      else if (age < 50) { agePoints = 18; }
+      else if (age < 60) { agePoints = 36; }
+      else if (age < 70) { agePoints = 55; }
+      else if (age < 80) { agePoints = 73; }
+      else if (age < 90) { agePoints = 91; }
+      else { agePoints = 100; }
+      gracePoints += agePoints;
+      
+      // Heart Rate points
+      var hrPoints = 0;
+      if (hr < 50) { hrPoints = 0; }
+      else if (hr < 60) { hrPoints = 5; }
+      else if (hr < 70) { hrPoints = 10; }
+      else if (hr < 80) { hrPoints = 15; }
+      else if (hr < 90) { hrPoints = 20; }
+      else if (hr < 100) { hrPoints = 25; }
+      else if (hr < 110) { hrPoints = 30; }
+      else if (hr < 120) { hrPoints = 35; }
+      else { hrPoints = 40; }
+      gracePoints += hrPoints;
+      
+      // Systolic Blood Pressure points
+      var sbpPoints = 0;
+      if (sbp >= 180) { sbpPoints = 0; }
+      else if (sbp >= 140) { sbpPoints = 5; }
+      else if (sbp >= 120) { sbpPoints = 10; }
+      else if (sbp >= 100) { sbpPoints = 15; }
+      else if (sbp >= 80) { sbpPoints = 20; }
+      else { sbpPoints = 25; }
+      gracePoints += sbpPoints;
+      
+      // Serum Creatinine points (mg/dL)
+      var creatPoints = 0;
+      if (creatinine < 1.0) { creatPoints = 0; }
+      else if (creatinine < 1.5) { creatPoints = 5; }
+      else if (creatinine < 2.0) { creatPoints = 10; }
+      else if (creatinine < 2.5) { creatPoints = 15; }
+      else if (creatinine < 3.0) { creatPoints = 20; }
+      else { creatPoints = 25; }
+      gracePoints += creatPoints;
+      
+      // Killip Class points
+      var killipPoints = 0;
+      if (killip === "I") { killipPoints = 0; }
+      else if (killip === "II") { killipPoints = 20; }
+      else if (killip === "III") { killipPoints = 40; }
+      else if (killip === "IV") { killipPoints = 60; }
+      gracePoints += killipPoints;
+      
+      // Cardiac Arrest at Admission
+      if (arrest) { gracePoints += 30; }
+      
+      // ST-segment Deviation
+      if (stDep) { gracePoints += 20; }
+      
+      // Elevated Cardiac Enzymes
+      if (enzymes) { gracePoints += 10; }
+      
+      // -------------------------------------------
+      // Mehran Score Calculation (contrast-induced nephropathy)
+      var mehranPoints = 0;
+      
+      // Hypotension (SBP <80 mmHg with inotropes)
+      if (hypotension) { mehranPoints += 5; }
+      
+      // IABP use
+      if (iabp) { mehranPoints += 5; }
+      
+      // Congestive Heart Failure (assumed if Killip class is not I)
+      if (killip !== "I") { mehranPoints += 5; }
+      
+      // Age >75 years
+      if (age > 75) { mehranPoints += 4; }
+      
+      // Anemia
+      if (anemia) { mehranPoints += 3; }
+      
+      // Diabetes Mellitus
+      if (diabetes) { mehranPoints += 3; }
+      
+      // Contrast Volume points: 1 point per 100 mL contrast
+      var contrastPoints = Math.floor(contrast / 100);
+      mehranPoints += contrastPoints;
+      
+      // Serum Creatinine (Mehran-specific scoring)
+      if (creatinine > 1.5 && creatinine <= 2) { mehranPoints += 4; }
+      else if (creatinine > 2 && creatinine <= 3) { mehranPoints += 6; }
+      else if (creatinine > 3) { mehranPoints += 8; }
+      
+      // -------------------------------------------
+      // Display the calculated results using bullet points
+      var resultHtml = "<h3>Calculated Risk Scores</h3><ul>";
+      resultHtml += "<li><strong>TIMI Risk Score:</strong> " + timiNSTEMI + " out of 7</li>";
+      resultHtml += "<li><strong>GRACE Score:</strong> " + gracePoints + " points</li>";
+      resultHtml += "<li><strong>Mehran Score:</strong> " + mehranPoints + " points</li>";
+      resultHtml += "</ul>";
+      
+      document.getElementById('results').innerHTML = resultHtml;
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <!-- SKSH Logo -->
+    <div class="logo">
+      <img src="https://www.sksh.ae/wp-content/uploads/2015/06/SKSH-logo4.png" alt="SKSH Logo">
+    </div>
+    
+    <h2>ACS Risk Scores Calculator</h2>
+    
+    <form id="riskForm">
+      <!-- Common Parameters Section -->
+      <details open>
+        <summary>Common Parameters</summary>
+        <label for="age">Age (years):</label>
+        <input type="number" id="age" name="age" oninput="calculateScores()" step="any">
+        
+        <label for="hr">Heart Rate (bpm):</label>
+        <input type="number" id="hr" name="hr" oninput="calculateScores()" step="any">
+        
+        <label for="sbp">Systolic Blood Pressure (mmHg):</label>
+        <input type="number" id="sbp" name="sbp" oninput="calculateScores()" step="any">
+        
+        <label for="creatinine">Serum Creatinine (µmol/L):</label>
+        <input type="number" id="creatinine" name="creatinine" oninput="calculateScores()" step="any">
+        
+        <label for="killip">Killip Class:</label>
+        <select id="killip" name="killip" onchange="calculateScores()">
+          <option value="I">I</option>
+          <option value="II">II</option>
+          <option value="III">III</option>
+          <option value="IV">IV</option>
+        </select>
+      </details>
+      
+      <!-- TIMI Risk Score Specific Section -->
+      <details>
+        <summary>TIMI Risk Score Specific</summary>
+        <div class="checkbox-group">
+          <input type="checkbox" id="riskFactors" name="riskFactors" onchange="calculateScores()">
+          <label for="riskFactors" style="display:inline;">≥3 CAD Risk Factors (HTN, DM, Family History of CAD, Smoking, or Hypercholesterolemia)</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="cad" name="cad" onchange="calculateScores()">
+          <label for="cad" style="display:inline;">Known CAD (≥50% stenosis)</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="angina" name="angina" onchange="calculateScores()">
+          <label for="angina" style="display:inline;">≥2 Anginal Events in 24 Hours</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="aspirin" name="aspirin" onchange="calculateScores()">
+          <label for="aspirin" style="display:inline;">Aspirin Use in Last 7 Days preceding ACS</label>
+        </div>
+      </details>
+      
+      <!-- GRACE Score Specific Section -->
+      <details>
+        <summary>GRACE Score Specific</summary>
+        <div class="checkbox-group">
+          <input type="checkbox" id="arrest" name="arrest" onchange="calculateScores()">
+          <label for="arrest" style="display:inline;">Cardiac Arrest at Admission</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="stDep" name="stDep" onchange="calculateScores()">
+          <label for="stDep" style="display:inline;">ST-Segment Deviation on ECG</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="enzymes" name="enzymes" onchange="calculateScores()">
+          <label for="enzymes" style="display:inline;">Elevated Cardiac Enzymes</label>
+        </div>
+      </details>
+      
+      <!-- Mehran Score Specific Section -->
+      <details>
+        <summary>Mehran Score Specific</summary>
+        <div class="checkbox-group">
+          <input type="checkbox" id="hypotension" name="hypotension" onchange="calculateScores()">
+          <label for="hypotension" style="display:inline;">Hypotension (SBP &lt;80 mmHg ≥ 1 hr requiring inotrope or IABP within 24 hrs of PCI)</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="iabp" name="iabp" onchange="calculateScores()">
+          <label for="iabp" style="display:inline;">Intra-aortic balloon pump (IABP) Use</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="anemia" name="anemia" onchange="calculateScores()">
+          <label for="anemia" style="display:inline;">Anemia (Hematocrit <39% in men, <36% in women)</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="diabetes" name="diabetes" onchange="calculateScores()">
+          <label for="diabetes" style="display:inline;">Diabetes Mellitus (Treated with insulin or oral hypoglycemic agents)</label>
+        </div>
+        <label for="contrast">Contrast Volume (mL):</label>
+        <input type="number" id="contrast" name="contrast" oninput="calculateScores()" step="any">
+      </details>
+    </form>
+    
+    <div id="results" class="result"></div>
+    
+    <hr>
+    <h4>References</h4>
+    <ul>
+      <li>Antman, E.M. et al. (2000) ‘TIMI risk score for ST-elevation myocardial infarction: A method for prognostication and therapeutic decision making’, <em>JAMA</em>, 284(7), pp. 835–842.</li>
+      <li>Fox, K.A.A. et al. (2006) ‘Prediction of risk of death and myocardial infarction in the six months after presentation with acute coronary syndrome: prospective multinational observational study (GRACE)’, BMJ, 333(7578), p. 1091.</li>
+      <li>Mehran, R. et al. (2004) ‘A simple risk score for prediction of contrast-induced nephropathy after percutaneous coronary intervention’, <em>Journal of the American College of Cardiology</em>, 44(7), pp. 1393–1399.</li>
+    </ul>
+    
+    <!-- Footer as a Collapsible Section -->
+    <footer>
+      <details>
+        <summary>About This Tool</summary>
+        <div class="tool-disclaimer">
+          <p><strong>Version 1.0</strong></p>
+          <p>
+            This tool consolidates the validated TIMI (Antman et al., 2000), GRACE (Eagle et al., 2004), and Mehran (Mehran et al., 2004) risk scores to facilitate comprehensive risk assessment in acute coronary syndromes. It is intended for informational purposes only and does not replace clinical evaluation or professional medical judgment.
+          </p>
+        </div>
+        <div class="dev-info">
+          <p><strong>Developed By:</strong></p>
+          <p>
+            <span class="name">Musab Egaimi</span><span class="postnominal">, MBBS, MSc, MRCP, CCK</span>
+          </p>
+          <p><strong>Team Members:</strong></p>
+          <p>
+            <span class="name">Pierfrancesco Corvo</span><span class="postnominal">, MD, PhD</span>, 
+            <span class="name">Fabrizio Clementi</span><span class="postnominal">, MD, PhD</span>, 
+            <span class="name">Ji Min Chang</span><span class="postnominal">, MD, PhD, MBA</span>,
+            <span class="name">Heeyoung Seo</span><span class="postnominal">, MD</span>, 
+            <span class="name">Alghafek Almorraweh</span><span class="postnominal">, MD, MS</span>, 
+            <span class="name">Wonsuk Choi</span><span class="postnominal">, MD</span>, 
+            <span class="name">Hassan Badreldin</span><span class="postnominal">, MBBS, MSc, MRCP</span>, 
+            <span class="name">Sahla Omer</span><span class="postnominal">, MBBS, MRCP</span>, 
+            <span class="name">Mohamed Hamdy Serour</span><span class="postnominal">, MB Bch, MSc</span>, 
+            <span class="name">Lara Elemam</span><span class="postnominal">, MBBS</span>,
+            <span class="name">Hasan Alhouri</span><span class="postnominal">, MD, MS</span>, 
+            <span class="name">Musab Mukhtar</span><span class="postnominal">, MBBS, MRCP</span>,
+            <span class="name">Jina An</span><span class="postnominal">, RN</span>. 
+            <span class="name">Adnan Elhallab</span><span class="postnominal">, RN</span>.
+          </p>
+          <p><strong>Institutional affiliation</strong>: Cardiovascular Center, Sheikh Khalifa Specialty Hospital, RAK, UAE</p>
+          <p><strong>© 2025</strong></p>
+        </div>
+      </details>
+    </footer>
+  </div>
+</body>
+</html>
